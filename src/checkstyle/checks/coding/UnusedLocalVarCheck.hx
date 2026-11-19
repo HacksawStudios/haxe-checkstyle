@@ -40,7 +40,7 @@ class UnusedLocalVarCheck extends Check {
 							GoDeeper;
 						}
 						else SkipSubtree;
-					case BrOpen if (TokenTreeCheckUtils.getBrOpenType(tok) == AnonType): SkipSubtree;
+					case BrOpen if (isAnonType(tok)): SkipSubtree;
 					case Kwd(KwdMacro): SkipSubtree;
 					default: GoDeeper;
 				}
@@ -62,7 +62,7 @@ class UnusedLocalVarCheck extends Check {
 	}
 
 	function isOutermostArrowFunction(token:TokenTree):Bool {
-		if (TokenTreeCheckUtils.determineArrowType(token) != ArrowFunction) {
+		if (!isArrowFunction(token)) {
 			return false;
 		}
 
@@ -71,7 +71,7 @@ class UnusedLocalVarCheck extends Check {
 			switch (parent.tok) {
 				case Kwd(KwdFunction):
 					return false;
-				case Arrow if (TokenTreeCheckUtils.determineArrowType(parent) == ArrowFunction):
+				case Arrow if (isArrowFunction(parent)):
 					return false;
 				default:
 			}
@@ -80,6 +80,48 @@ class UnusedLocalVarCheck extends Check {
 		}
 
 		return true;
+	}
+
+	function isArrowFunction(token:TokenTree):Bool {
+		return TokenTreeCheckUtils.determineArrowType(token) == ArrowFunction && !isTypeArrow(token);
+	}
+
+	function isAnonType(brOpen:TokenTree):Bool {
+		if (TokenTreeCheckUtils.getBrOpenType(brOpen) == AnonType) {
+			return true;
+		}
+
+		var parent:Null<TokenTree> = brOpen.parent;
+		return parent != null && parent.matches(Arrow) && isTypeArrow(parent);
+	}
+
+	function isTypeArrow(arrow:TokenTree):Bool {
+		// tokentree mistakenly reads the braces in `() -> { var index:Int; }` as a block instead of an anon struct
+		var parent:Null<TokenTree> = arrow.parent;
+		while (parent != null) {
+			switch (parent.tok) {
+				case DblDot:
+					switch (TokenTreeCheckUtils.getColonType(parent)) {
+						case TypeHint, TypeCheck: return true;
+						default:
+					}
+				case Binop(OpLt) if (TokenTreeCheckUtils.isTypeParameter(parent)):
+					return true;
+				case Binop(OpAssign):
+					return isTypedefName(parent.parent);
+				case Kwd(KwdFunction):
+					return false;
+				default:
+			}
+
+			parent = parent.parent;
+		}
+
+		return false;
+	}
+
+	function isTypedefName(token:Null<TokenTree>):Bool {
+		return token != null && token.parent != null && token.parent.matches(Kwd(KwdTypedef));
 	}
 
 	function checkLocalVars(f:TokenTree, localVars:Array<TokenTree>) {
