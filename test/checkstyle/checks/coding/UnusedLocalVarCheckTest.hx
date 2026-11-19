@@ -12,6 +12,7 @@ class UnusedLocalVarCheckTest extends CheckTestCase<UnusedLocalVarCheckTests> {
 		assertNoMsg(check, MACRO_REIFIED_VARS);
 		assertNoMsg(check, ANON_STRUCT_TYPE);
 		assertNoMsg(check, RETURN_ANON_STRUCT_FIELDS);
+		assertNoMsg(check, ARROW_TYPE_ANON_STRUCT_FIELDS);
 	}
 
 	@Test
@@ -170,6 +171,15 @@ enum abstract UnusedLocalVarCheckTests(String) to String {
 	var RETURN_ANON_STRUCT_FIELDS = "
 	abstractAndClass Test {
 		function a():{ var index:Int; final index2:Int; } {
+			return null;
+		}
+	}";
+	var ARROW_TYPE_ANON_STRUCT_FIELDS = "
+	typedef Factory = () -> { var index:Int; };
+	abstractAndClass Test {
+		var callback:() -> { final index:Int; };
+		function a(arg:() -> { final index:Int; }) {}
+		function b():() -> { final index:Int; } {
 			return null;
 		}
 	}";
